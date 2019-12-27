@@ -1,0 +1,329 @@
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+%                      Semantic Analyzer                       %
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+
+module semantics.
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'process':                                                                      *
+* Input: TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable,          *
+*    TokenName, TokenType, and PrecedenceOfToken.                                 *
+* Output: Evaluate a given expression or sub-expression.                          *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+process (_, _, Errors, Tokens, Precedence, SymbolTable, TokenName, TokenType, -1)
+	= [[[TokenName, TokenType] | Tokens], Precedence, Errors, SymbolTable].
+process (_, _, Errors, Tokens, [0 | T1], SymbolTable, _, _, 4)
+	= [Tokens, T1, Errors, SymbolTable].
+process (TheCodeLine, CurrLine, Errors, Tokens, Precedence@[1 | _], SymbolTable, _, _, 4) = Arr =>
+	[_, Tokens1, Precedence1, Errors1, SymbolTable1]
+		= processUnary (TheCodeLine, CurrLine, Tokens, Precedence, Errors, SymbolTable),
+	Arr = process (TheCodeLine, CurrLine, Errors1, Tokens1, Precedence1, SymbolTable1, "m", '0', 4). 
+process (TheCodeLine, CurrLine, Errors, Tokens, Precedence@[2 | _], SymbolTable, _, _, 4) = Arr =>
+	[_, Tokens1, Precedence1, Errors1, SymbolTable1]
+		= processBinary (TheCodeLine, CurrLine, Tokens, Precedence, Errors, SymbolTable),
+	Arr = process (TheCodeLine, CurrLine, Errors1, Tokens1, Precedence1, SymbolTable1, "m", '0', 4).	
+process (TheCodeLine, CurrLine, Errors, Tokens, Precedence@[3 | _], SymbolTable, _, _, 4) = Arr =>
+	[_, Tokens1, Precedence1, Errors1, SymbolTable1]
+		= processBinary (TheCodeLine, CurrLine, Tokens, Precedence, Errors, SymbolTable),
+	Arr = process (TheCodeLine, CurrLine, Errors1, Tokens1, Precedence1, SymbolTable1, "m", '0', 4).
+process (TheCodeLine, CurrLine, Errors, Tokens@[[Name1, '1'], [Name2, _] | _], Precedence@[4 | _], SymbolTable, _, _, 4) = Arr =>
+	if (head(tail(get(SymbolTable, Name1))) == true) then
+		X1 = head(get(SymbolTable, Name1)),
+		ErrorOccured = false
+	else
+		printSemanticError (TheCodeLine, CurrLine, Name1, Errors + 1),
+		Arr = [Tokens, Precedence, Errors+1, SymbolTable],
+		ErrorOccured = true
+	end,
+	if (ErrorOccured == false) then
+		put (SymbolTable, Name2, [X1, true]),
+		Arr = [[], [4], Errors, SymbolTable]
+	end.
+process (_, _, Errors, [[Name1, '2'], [Name2, _] | _], [4 | _], SymbolTable, _, _, 4) = Arr =>
+	X1 = to_int(Name1),
+	put (SymbolTable, Name2, [X1, true]),
+	Arr = [[], [4], Errors, SymbolTable].
+process (_, _, Errors, Tokens, Precedence, SymbolTable, "(", _, _)
+	= [Tokens, [0|Precedence], Errors, SymbolTable].
+process (_, _, Errors, Tokens, Precedence@[0|_], SymbolTable, TokenName, TokenType, PrecedenceOfToken)
+	= [[[TokenName, TokenType] | Tokens], [PrecedenceOfToken | Precedence], Errors, SymbolTable].
+process (_, _, Errors, Tokens, Precedence, SymbolTable, "-", _, 1) = Arr =>
+	[Tokens1, Precedence1] = toggleUnary (Tokens, Precedence),
+	Arr = [Tokens1, Precedence1, Errors, SymbolTable].
+process (_, _, Errors, Tokens, Precedence, SymbolTable, "+", _, 1)
+	= [Tokens, Precedence, Errors, SymbolTable].
+process (TheCodeLine, CurrLine, Errors, Tokens, Precedence@[H1|_], SymbolTable, TokenName, TokenType, 2) = Arr =>
+	if (2 < H1) then
+		Arr = [[[TokenName, TokenType] | Tokens], [2 | Precedence], Errors, SymbolTable]
+	else
+		if (H1 == 1) then
+			[Is_Processed, Tokens1, Precedence1, Errors1, SymbolTable1]
+				= processUnary (TheCodeLine, CurrLine, Tokens, Precedence, Errors, SymbolTable)
+		else
+			[Is_Processed, Tokens1, Precedence1, Errors1, SymbolTable1] = [true, Tokens, Precedence, Errors, SymbolTable]
+		end,
+		if (Is_Processed == true) then
+			if (head(Precedence1) == 2) then
+				Temp := processBinary (TheCodeLine, CurrLine, Tokens1, Precedence1, Errors1, SymbolTable1),
+				while (head(Temp) == true, head(head(tail(tail(Temp)))) == 2)
+					Temp := processBinary (TheCodeLine, CurrLine, head(tail(Temp)), head(tail(tail(Temp))), head(tail(tail(tail(Temp)))), head(tail(tail(tail(tail(Temp))))))
+				end,
+				if (head(Temp) == true) then
+					[_, Tokens2, Precedence2, Errors2, SymbolTable2] = Temp,
+					Arr = [[[TokenName, TokenType]|Tokens2], [2|Precedence2], Errors2, SymbolTable2]
+				else
+					Arr = tail(Temp)
+				end
+			else
+				Arr = [[[TokenName, TokenType]|Tokens1], [2|Precedence1], Errors1, SymbolTable1]
+			end
+		else
+			Arr = [Tokens1, Precedence1, Errors1, SymbolTable1]
+		end
+	end.
+process (TheCodeLine, CurrLine, Errors, Tokens, Precedence@[H1|_], SymbolTable, TokenName, TokenType, 3) = Arr =>
+	if (3 < H1) then
+		Arr = [[[TokenName, TokenType] | Tokens], [3 | Precedence], Errors, SymbolTable]
+        	else
+		if (H1 == 1) then
+			[Is_Processed, Tokens1, Precedence1, Errors1, SymbolTable1]
+				= processUnary (TheCodeLine, CurrLine, Tokens, Precedence, Errors, SymbolTable)
+		else
+			[Is_Processed, Tokens1, Precedence1, Errors1, SymbolTable1] = [true, Tokens, Precedence, Errors, SymbolTable]
+		end,
+		if (Is_Processed == true) then
+			if (head(Precedence1) == 2) then
+				[Is_Processed2, Tokens2, Precedence2, Errors2, SymbolTable2]
+					= processBinary (TheCodeLine, CurrLine, Tokens1, Precedence1, Errors1, SymbolTable1)
+			else
+				[Is_Processed2, Tokens2, Precedence2, Errors2, SymbolTable2] = [true, Tokens1, Precedence1, Errors1, SymbolTable1]
+			end
+		else
+			[Is_Processed2, Tokens2, Precedence2, Errors2, SymbolTable2] = [false, Tokens1, Precedence1, Errors1, SymbolTable1]
+		end,
+		if (Is_Processed2 == true) then
+			if (head(Precedence2) == 3) then
+				Temp := processBinary (TheCodeLine, CurrLine, Tokens2, Precedence2, Errors2, SymbolTable2),
+				[Is_Processed6, Tokens6, Precedence6, Errors6, SymbolTable6] = Temp,
+				while (Is_Processed6 == true, head(Precedence6) == 3)
+					Temp := processBinary (TheCodeLine, CurrLine, Tokens6, Precedence6, Errors6, SymbolTable6),
+					Is_Processed6 := head(Temp),
+					Tokens6 := head(tail(Temp)),
+					Precedence6 := head(tail(tail(Temp))),
+					Errors6 := head(tail(tail(tail(Temp)))),
+					SymbolTable6 := head(tail(tail(tail(tail(Temp)))))
+				end,
+				if (Is_Processed6 == true) then
+					[_, Tokens3, Precedence3, Errors3, SymbolTable3] = Temp,
+					Arr = [[[TokenName, TokenType]|Tokens3], [3|Precedence3], Errors3, SymbolTable3]
+				else
+					Arr = tail(Temp)
+				end
+			else
+				Arr = [[[TokenName, TokenType]|Tokens2], [3|Precedence2], Errors2, SymbolTable2]
+			end
+		else
+			Arr = [Tokens2, Precedence2, Errors2, SymbolTable2]
+		end
+	end.
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'toggleUnary':                                                                  *
+* Input: Tokens and Precedence.                                                   *
+* Output: Condense the sequence of unary arithmetic operators.                    *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+toggleUnary ([], Precedence@[4|_]) = [[["-", '3']], [1|Precedence]].
+toggleUnary ([], Precedence@[0|_]) = [[["-", '3']], [1|Precedence]].
+toggleUnary ([["-"|T0]|T1], Precedence@[3|_]) = [ [ ["+"|T0]|T1], Precedence].
+toggleUnary ([["-"|_]|T1], [1|T2]) = [T1, T2].
+toggleUnary (Tokens, Precedence) = [[["-", '3']|Tokens], [1|Precedence]].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'processBinary':                                                                *
+* Input: TheCodeLine, CurrLine, Tokens, Precedence, Errors, and SymbolTable.      *
+* Output: Evaluate binary operations.                                             *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+processBinary (TheCodeLine, CurrLine, [[Name1,'1'],["+",_],[Name3, '1']|TokensRest], [_ | T], Errors, SymbolTable) = Arr =>
+	if (head(tail(get(SymbolTable, Name1))) == true) then
+   		X1 = head(get(SymbolTable, Name1)),
+		ErrorOccured = false
+	else
+        		printSemanticError (TheCodeLine, CurrLine, Name1, Errors + 1),
+       		Arr = [false, [[Name3, '1']|TokensRest], T, Errors + 1, SymbolTable],
+		ErrorOccured = true
+	end,
+	if (head(tail(get(SymbolTable, Name3))) == true) then
+		X2 = head(get(SymbolTable, Name3)),
+		ErrorOccured2 = false
+	else
+		printSemanticError (TheCodeLine, CurrLine, Name3, Errors + 1),
+		Arr = [false, [[Name1, '1']|TokensRest], T, Errors + 1, SymbolTable],
+		ErrorOccured2 = true
+	end,
+	if (ErrorOccured != true, ErrorOccured2 != true) then
+		Arr = [true, [[to_string(X1 + X2), '2']|TokensRest], T, Errors, SymbolTable]
+	end.
+processBinary (TheCodeLine, CurrLine, [[Name1,'1'],["-",_],[Name3, '1']|TokensRest], [_ | T], Errors, SymbolTable) = Arr =>
+        if (head(tail(get(SymbolTable, Name1))) == true) then
+                X1 = head(get(SymbolTable, Name1)),
+                ErrorOccured = false
+        else
+                printSemanticError (TheCodeLine, CurrLine, Name1, Errors + 1),
+                Arr = [false, [[Name3, '1']|TokensRest], T, Errors + 1, SymbolTable],
+                ErrorOccured = true
+        end,
+        if (head(tail(get(SymbolTable, Name3))) == true) then
+                X2 = head(get(SymbolTable, Name3)),
+                ErrorOccured2 = false
+        else
+                printSemanticError (TheCodeLine, CurrLine, Name3, Errors + 1),
+                Arr = [false, [[Name1, '1']|TokensRest], T, Errors + 1, SymbolTable],
+                ErrorOccured2 = true
+        end,
+        if (ErrorOccured != true, ErrorOccured2 != true) then
+                Arr = [true, [[to_string(X2 - X1), '2']|TokensRest], T, Errors, SymbolTable]
+        end.
+processBinary (TheCodeLine, CurrLine, [[Name1,'1'],["*",_],[Name3, '1']|TokensRest], [_ | T], Errors, SymbolTable) = Arr =>
+        if (head(tail(get(SymbolTable, Name1))) == true) then
+                X1 = head(get(SymbolTable, Name1)),
+                ErrorOccured = false
+        else
+                printSemanticError (TheCodeLine, CurrLine, Name1, Errors + 1),
+                Arr = [false, [[Name3, '1']|TokensRest], T, Errors + 1, SymbolTable],
+                ErrorOccured = true
+        end,
+        if (head(tail(get(SymbolTable, Name3))) == true) then
+                X2 = head(get(SymbolTable, Name3)),
+                ErrorOccured2 = false
+        else
+                printSemanticError (TheCodeLine, CurrLine, Name3, Errors + 1),
+                Arr = [false, [[Name1, '1']|TokensRest], T, Errors + 1, SymbolTable],
+                ErrorOccured2 = true
+        end,
+        if (ErrorOccured != true, ErrorOccured2 != true) then
+                Arr = [true, [[to_string(X1 * X2), '2']|TokensRest], T, Errors, SymbolTable]
+        end.
+processBinary (TheCodeLine, CurrLine, [[Name1,'2'],["+",_],[Name3, '1']|TokensRest], [_ | T], Errors, SymbolTable) = Arr =>
+        X1 = to_int(Name1),
+        if (head(tail(get(SymbolTable, Name3))) == true) then
+                X2 = head(get(SymbolTable, Name3)),
+                ErrorOccured2 = false
+        else
+                printSemanticError (TheCodeLine, CurrLine, Name3, Errors + 1),
+                Arr = [false, [[Name1, '2']|TokensRest], T, Errors + 1, SymbolTable],
+                ErrorOccured2 = true
+        end,
+        if (ErrorOccured2 != true) then
+                Arr = [true, [[to_string(X1 + X2), '2']|TokensRest], T, Errors, SymbolTable]
+        end.
+processBinary (TheCodeLine, CurrLine, [[Name1,'2'],["-",_],[Name3, '1']|TokensRest], [_ | T], Errors, SymbolTable) = Arr =>
+        X1 = to_int(Name1),
+        if (head(tail(get(SymbolTable, Name3))) == true) then
+                X2 = head(get(SymbolTable, Name3)),
+                ErrorOccured2 = false
+        else
+                printSemanticError (TheCodeLine, CurrLine, Name3, Errors + 1),
+                Arr = [false, [[Name1, '2']|TokensRest], T, Errors + 1, SymbolTable],
+                ErrorOccured2 = true
+        end,
+        if (ErrorOccured2 != true) then
+                Arr = [true, [[to_string(X2 - X1), '2']|TokensRest], T, Errors, SymbolTable]
+        end.
+processBinary (TheCodeLine, CurrLine, [[Name1,'2'],["*",_],[Name3, '1']|TokensRest], [_ | T], Errors, SymbolTable) = Arr =>
+        X1 = to_int(Name1),
+        if (head(tail(get(SymbolTable, Name3))) == true) then
+                X2 = head(get(SymbolTable, Name3)),
+                ErrorOccured2 = false
+        else
+                printSemanticError (TheCodeLine, CurrLine, Name3, Errors + 1),
+                Arr = [false, [[Name1, '2']|TokensRest], T, Errors + 1, SymbolTable],
+                ErrorOccured2 = true
+        end,
+        if (ErrorOccured2 != true) then
+                Arr = [true, [[to_string(X1 * X2), '2']|TokensRest], T, Errors, SymbolTable]
+        end.
+processBinary (TheCodeLine, CurrLine, [[Name1,'1'],["+",_],[Name3, '2']|TokensRest], [_ | T], Errors, SymbolTable) = Arr =>
+        if (head(tail(get(SymbolTable, Name1))) == true) then
+                X1 = head(get(SymbolTable, Name1)),
+                ErrorOccured = false
+        else
+                printSemanticError (TheCodeLine, CurrLine, Name1, Errors + 1),
+                Arr = [false, [[Name3, '2']|TokensRest], T, Errors + 1, SymbolTable],
+                ErrorOccured = true
+        end,
+	X2 = to_int(Name3),
+        if (ErrorOccured != true) then
+                Arr = [true, [[to_string(X1 + X2), '2']|TokensRest], T, Errors, SymbolTable]
+        end.
+processBinary (TheCodeLine, CurrLine, [[Name1,'1'],["-",_],[Name3, '2']|TokensRest], [_ | T], Errors, SymbolTable) = Arr =>
+        if (head(tail(get(SymbolTable, Name1))) == true) then
+                X1 = head(get(SymbolTable, Name1)),
+                ErrorOccured = false
+        else
+                printSemanticError (TheCodeLine, CurrLine, Name1, Errors + 1),
+                Arr = [false, [[Name3, '2']|TokensRest], T, Errors + 1, SymbolTable],
+                ErrorOccured = true
+        end,
+        X2 = to_int(Name3),
+        if (ErrorOccured != true) then
+                Arr = [true, [[to_string(X2 - X1), '2']|TokensRest], T, Errors, SymbolTable]
+        end.
+processBinary (TheCodeLine, CurrLine, [[Name1,'1'],["*",_],[Name3, '2']|TokensRest], [_ | T], Errors, SymbolTable) = Arr =>
+        if (head(tail(get(SymbolTable, Name1))) == true) then
+                X1 = head(get(SymbolTable, Name1)),
+                ErrorOccured = false
+        else
+                printSemanticError (TheCodeLine, CurrLine, Name1, Errors + 1),
+                Arr = [false, [[Name3, '2']|TokensRest], T, Errors + 1, SymbolTable],
+                ErrorOccured = true
+        end,
+        X2 = to_int(Name3),
+        if (ErrorOccured != true) then
+                Arr = [true, [[to_string(X1 * X2), '2']|TokensRest], T, Errors, SymbolTable]
+        end.
+processBinary (_, _, [[Name1,'2'],["+",_],[Name3, '2']|TokensRest], [_ | T], Errors, SymbolTable)
+	= [true, [[to_string(to_int(Name1) + to_int(Name3)), '2'] | TokensRest], T, Errors, SymbolTable].
+processBinary (_, _, [[Name1,'2'],["-",_],[Name3, '2']|TokensRest], [_ | T], Errors, SymbolTable)
+	= [true, [[to_string(to_int(Name3) - to_int(Name1)), '2'] | TokensRest], T, Errors, SymbolTable].
+processBinary (_, _, [[Name1,'2'],["*",_],[Name3, '2']|TokensRest], [_ | T], Errors, SymbolTable)
+	= [true, [[to_string(to_int(Name1) * to_int(Name3)), '2'] | TokensRest], T, Errors, SymbolTable].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'processUnary':                                                                 *
+* Input: TheCodeLine, CurrLine, Tokens, Precedence, Errors, and SymbolTable.      *
+* Output: Evaluate unary operations.                                              *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+processUnary (TheCodeLine, CurrLine, [[Name1,'1'], _ | TokensRest], [_ | T], Errors, SymbolTable) = Arr =>
+        if (head(tail(get(SymbolTable, Name1))) == true) then
+                X1 = head(get(SymbolTable, Name1)),
+	ErrorOccured = false
+        else
+                printSemanticError (TheCodeLine, CurrLine, Name1, Errors + 1),
+                Arr = [false, [[Name1, '1']|TokensRest], T, Errors + 1, SymbolTable],
+                ErrorOccured = true
+        end,
+        if (ErrorOccured == false) then
+                Arr = [true, [[to_string(- X1), '2']|TokensRest], T, Errors, SymbolTable]
+        end.
+processUnary (_, _, [[Name1,'2'], _ | TokensRest], [_ | T], Errors, SymbolTable)
+	= [true, [[to_string(- to_int(Name1)), '2'] | TokensRest], T, Errors, SymbolTable].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'printSemanticError':                                                           *
+* Input: TheCodeLine, CurrLine, Name, Errors.                                     *
+* Output: Print the location of a semantic error (uninitialized variables).       *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+printSemanticError (TheCodeLine, CurrLine, Name, Errors) =>
+	if (Errors == 0) then
+		print ("------------------------ ERRORS ------------------------\n")
+	end,
+	print (Errors),
+	print (") Semantic Error:\n"),
+	print ("The variable\n\n\t"),
+	print (Name),
+	print ("\n\non line "),
+	print (CurrLine),
+	print (":\n\n\t"),
+	print (TheCodeLine),
+	print ("\n\nhas not been initialized before the assignment!\n\n" ),
+	print ("--------------------------------------------------------\n").

@@ -1,0 +1,74 @@
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+%                          Tokenizer                           %
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+
+module tokenizer.
+
+% Token 'Type' Categorizations:                                                                   
+%    1) Identifier ---> the 'type' variable contains the character '1'                            
+%    2) Literal    ---> the 'type' variable contains the character '2'                            
+%    3) Symbol     ---> if from [= ; + - * ( )], the 'type' variable contains the character '3'   
+%    4) Input End  ---> if the end of the input was reached, the 'type' variable contains '5'     
+%    5) Disallowed ---> if none of the above, the 'type' variable contains the character '0' 
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'nextToken':                                                                    *
+* Input: Code, CurrLine, CurrCol, SymbolTable, and TheCodeLine.                   *
+* Output: Retrieve the next token and change the accumulators respectively.       *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+nextToken ([], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[], CurrLine, CurrCol, SymbolTable, [], '5', TheCodeLine].
+nextToken ([[]], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[], CurrLine, CurrCol+1, SymbolTable, [], '5', TheCodeLine].
+nextToken ([[], H | T], CurrLine, _, SymbolTable, _) = nextToken ([H | T], CurrLine+1, 0, SymbolTable, H).
+nextToken ([[] | [H | T]], CurrLine, _, SymbolTable, _) = nextToken ([H | T], CurrLine+1, 0, SymbolTable, H).
+nextToken ([[' '|T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = nextToken ([T1|T2], CurrLine, CurrCol+1, SymbolTable, TheCodeLine).
+nextToken ([['\t'|T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = nextToken ([T1|T2], CurrLine, CurrCol+1, SymbolTable, TheCodeLine).
+nextToken ([['	'|T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = nextToken ([T1|T2], CurrLine, CurrCol+1, SymbolTable, TheCodeLine).
+nextToken ([['='|T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[T1|T2], CurrLine, CurrCol+1, SymbolTable, "=", '3', TheCodeLine].
+nextToken ([[';'|T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[T1|T2], CurrLine, CurrCol+1, SymbolTable, ";", '3', TheCodeLine].
+nextToken ([['+'|T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[T1|T2], CurrLine, CurrCol+1, SymbolTable, "+", '3', TheCodeLine].
+nextToken ([['-'|T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[T1|T2], CurrLine, CurrCol+1, SymbolTable, "-", '3', TheCodeLine].
+nextToken ([['*'|T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[T1|T2], CurrLine, CurrCol+1, SymbolTable, "*", '3', TheCodeLine].
+nextToken ([['('|T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[T1|T2], CurrLine, CurrCol+1, SymbolTable, "(", '3', TheCodeLine].
+nextToken ([[')'|T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[T1|T2], CurrLine, CurrCol+1, SymbolTable, ")", '3', TheCodeLine].
+nextToken ([['0'|T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[T1|T2], CurrLine, CurrCol+1, SymbolTable, "0", '2', TheCodeLine].
+nextToken ([[H|T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = Arr =>
+	MyStr = [],
+	Code1 = [H|T1],
+	CurrCol1 = CurrCol,
+	NewType = '0',
+	NewHead = H,
+	if (digit(NewHead)) then
+		while (digit(NewHead))
+			MyStr := [NewHead | MyStr],
+			CurrCol1 := CurrCol1 + 1,
+			Code1 := tail (Code1),
+			if (Code1 == []) then
+				NewHead := 'a' % To stop the loop
+			else
+				NewHead := head (Code1)
+			end
+		end,
+		NewType := '2',
+		MyStr := reverse(MyStr)
+	elseif (ascii_alpha(NewHead); NewHead == '_') then
+		while (ascii_alpha_digit(NewHead); NewHead == '_')
+			MyStr := [NewHead | MyStr],
+			CurrCol1 := CurrCol1 + 1,
+			Code1 := tail (Code1),
+			if (Code1 == []) then
+				NewHead := '+' % To stop the loop
+			else
+				NewHead := head (Code1)
+			end
+		end,
+		MyStr := reverse(MyStr),
+		if (not has_key(SymbolTable, MyStr)) then
+			put (SymbolTable, MyStr, [0, false])
+		end,
+		NewType := '1'
+	else
+		MyStr := NewHead,
+		CurrCol1 := CurrCol1 + 1,
+		NewType := '0'
+	end,
+	Arr = [[Code1|T2], CurrLine, CurrCol1, SymbolTable, MyStr, NewType, TheCodeLine].

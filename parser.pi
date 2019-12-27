@@ -1,0 +1,541 @@
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+%                   Syntax Analyzer (Parser)                   %
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+
+module parser.
+import tokenizer, semantics.
+	
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'parser':                                                                       *
+* Input: Code, SymbolTable.                                                       *
+* Output: Call the extended version of 'parser' with more accumulators.           *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+parser ([], SymbolTable) => parser ([], 0, 0, 0, 0, [], [4], SymbolTable, "0", '0', []).
+parser ([[]], SymbolTable) => parser ([], 0, 0, 0, 0, [], [4], SymbolTable, "0", '0', []).
+parser ([H], SymbolTable) => parser ([H], 1, 0, 0, 0, [], [4], SymbolTable, "0", '0', H).
+parser (Code@[H|_], SymbolTable) => parser (Code, 1, 0, 0, 0, [], [4], SymbolTable, "0", '0', H).
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'parser':                                                                       *
+* Input: Code, CurrLine, CurrCol, Errors, OpenParens, Tokens,                     *
+*     Precedence, SymbolTable, TokenName, TokenType and TheCodeLine.              *
+* Output: Call the extended version of 'parser' with more accumulators.           *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+parser (_, _, _, Errors,_, _, _, SymbolTable, _, '5', _) =>
+	if (Errors > 0) then
+		printErrorsFooter (Errors)
+	else
+		printValuesOfVariables (SymbolTable)
+	end.
+parser ([[]], _, _, Errors,_, _, _, SymbolTable, _,_, _) =>
+	if (Errors > 0) then
+		printErrorsFooter (Errors)
+	else
+		printValuesOfVariables (SymbolTable)
+	end.
+parser (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, _, _, TheCodeLine) =>
+	[Code1, CurrLine1, CurrCol1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable, TheCodeLine),
+	[Is_Processed1, Code2, CurrLine2, CurrCol2,  Errors2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2] 
+		= matchID (Code1, CurrLine1, CurrCol1, Errors, OpenParens, Tokens, Precedence, SymbolTable1, TokenName1, TokenType1, TheCodeLine1),
+	if (Is_Processed1 == true) then
+		[Is_Processed2, Code3, CurrLine3, CurrCol3,  Errors3, Tokens3, Precedence3, SymbolTable3, TokenName3, TokenType3, TheCodeLine3] 
+			= matchAssign (Code2, CurrLine2, CurrCol2, Errors2, OpenParens, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2)
+	else
+		Is_Processed2 = false
+	end,
+	if (Is_Processed2 == true) then
+		[Is_Processed3, Code4, CurrLine4, CurrCol4,  Errors4, OpenParens4, Tokens4, Precedence4, SymbolTable4, TokenName4, TokenType4, TheCodeLine4] 
+			= matchExp (Code3, CurrLine3, CurrCol3, Errors3, OpenParens, Tokens3, Precedence3, SymbolTable3, TokenName3, TokenType3, TheCodeLine3)
+	else
+		Is_Processed3 = false
+	end,
+	if (Is_Processed3 == true) then
+		[Is_Processed4, Code5, CurrLine5, CurrCol5, Errors5, Tokens5, Precedence5, SymbolTable5, TokenName5, TokenType5, TheCodeLine5]
+			= matchSemicolon (Code4, CurrLine4, CurrCol4, Errors4, Tokens4, Precedence4, SymbolTable4, TheCodeLine4)
+	else
+		Is_Processed4 = false
+	end,
+	if (Is_Processed4 != true) then
+		if (Is_Processed3 == true) then
+			[Code6, CurrLine6, CurrCol6,  Errors6, OpenParens6, Tokens6, Precedence6, SymbolTable6, TokenName6, TokenType6, TheCodeLine6]
+				= skipAfterNextSemicolon (Code5, CurrLine5, CurrCol5, Errors5, OpenParens4, Tokens5, Precedence5, SymbolTable5, TokenName5, TokenType5, TheCodeLine5)
+		elseif (Is_Processed2 == true) then
+			[Code6, CurrLine6, CurrCol6,  Errors6, OpenParens6, Tokens6, Precedence6, SymbolTable6, TokenName6, TokenType6, TheCodeLine6]
+				= skipAfterNextSemicolon (Code4, CurrLine4, CurrCol4, Errors4, OpenParens4, Tokens4, Precedence4, SymbolTable4, TokenName4, TokenType4, TheCodeLine4)
+		elseif (Is_Processed1 == true) then
+			[Code6, CurrLine6, CurrCol6,  Errors6, OpenParens6, Tokens6, Precedence6, SymbolTable6, TokenName6, TokenType6, TheCodeLine6]
+				= skipAfterNextSemicolon (Code3, CurrLine3, CurrCol3, Errors3, OpenParens, Tokens3, Precedence3, SymbolTable3, TokenName3, TokenType3, TheCodeLine3)
+		else
+			[Code6, CurrLine6, CurrCol6,  Errors6, OpenParens6, Tokens6, Precedence6, SymbolTable6, TokenName6, TokenType6, TheCodeLine6]
+				= skipAfterNextSemicolon (Code2, CurrLine2, CurrCol2, Errors2, OpenParens, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2)
+		end
+	else
+		[Code6, CurrLine6, CurrCol6,  Errors6, OpenParens6, Tokens6, Precedence6, SymbolTable6, TokenName6, TokenType6, TheCodeLine6]
+			= [Code5, CurrLine5, CurrCol5,  Errors5, OpenParens4, Tokens5, Precedence5, SymbolTable5, TokenName5, TokenType5, TheCodeLine5]
+	end,
+	if (OpenParens6 > 0) then
+		printSyntaxError (10, Errors6 + 1, TokenName6, TheCodeLine6, CurrLine6, CurrCol6, OpenParens6),
+		Errors7 = Errors6 + 1
+	else
+		Errors7 = Errors6
+	end,
+	% Tail - recursive call to the parser to parse a new code instruction:
+	parser (Code6, CurrLine6, CurrCol6, Errors7, OpenParens6, Tokens6, Precedence6, SymbolTable6, TokenName6, TokenType6, TheCodeLine6).
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'skipAfterNextSemicolon':                                                       *
+* Input: Code, CurrLine, CurrCol, Errors, OpenParens, Tokens,                     *
+*    Precedence, SymbolTable, TokenName, TokenType, and TheCodeLine.              *
+* Output: Panic Mode Error Recovery: Continue Parsing after Next Semicolon.       *
+* Return a new set of accumulators of the types of the input.                     *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+skipAfterNextSemicolon (Code, CurrLine, CurrCol, Errors, _, _, _, SymbolTable, ";", TokenType, TheCodeLine)
+	= [Code, CurrLine, CurrCol, Errors, 0, [], [4], SymbolTable, ";", TokenType, TheCodeLine].
+
+skipAfterNextSemicolon ([[';'|T1]|T2], CurrLine, CurrCol, Errors, _, _, _, SymbolTable, TokenName, TokenType, TheCodeLine)
+	= [[T1|T2], CurrLine, CurrCol, Errors, 0, [], [4], SymbolTable, TokenName, TokenType, TheCodeLine].
+
+skipAfterNextSemicolon ([[]], CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, _, _)
+	= [[], CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '5', []].
+
+skipAfterNextSemicolon ([], CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, _, _)
+	= [[], CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '5', []].
+
+skipAfterNextSemicolon ([[], H | T2], CurrLine, _, Errors, OpenParens, Tokens, Precedence, SymbolTable, _, _, _)
+	= skipAfterNextSemicolon ([H | T2], CurrLine+1, 0, Errors, OpenParens, Tokens, Precedence, SymbolTable, "0", '0', H).
+
+skipAfterNextSemicolon ([[ _ |T1]|T2], CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, _, _, TheCodeLine)
+	= skipAfterNextSemicolon ([T1|T2], CurrLine, CurrCol+1, Errors, OpenParens, Tokens, Precedence, SymbolTable, "0", '0', TheCodeLine).
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'matchID':                                                                      *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+matchID (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '0', TheCodeLine) = Arr =>
+	printSyntaxError (0, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	[Code1, CurrLine1, CurrCol1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable, TheCodeLine),
+	Arr = [false, Code1, CurrLine1, CurrCol1,  Errors+1, Tokens, Precedence, SymbolTable1, TokenName1, TokenType1, TheCodeLine1].
+
+matchID (Code, CurrLine, CurrCol, Errors, _, Tokens, Precedence, SymbolTable, TokenName, '1' , TheCodeLine) = Arr =>
+	[Tokens1, Precedence1, Errors1, SymbolTable1] = process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, TokenName, '1', -1),
+	[Code2, CurrLine2, CurrCol2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2] = nextToken (Code, CurrLine, CurrCol, SymbolTable1, TheCodeLine),
+	Arr = [true, Code2, CurrLine2, CurrCol2,  Errors1, Tokens1, Precedence1, SymbolTable2, TokenName2, TokenType2, TheCodeLine2].
+
+matchID (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '2' , TheCodeLine) = Arr =>
+	printSyntaxError (16, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	[Code1, CurrLine1, CurrCol1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable, TheCodeLine),
+	Arr = [false, Code1, CurrLine1, CurrCol1,  Errors+1, Tokens, Precedence, SymbolTable1, TokenName1, TokenType1, TheCodeLine1].
+
+matchID (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, ";", '3' , TheCodeLine) = Arr =>
+	printSyntaxError (5, Errors + 1, ";", TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, Tokens, Precedence, SymbolTable, ";", '3', TheCodeLine].
+
+matchID (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '3' , TheCodeLine) = Arr =>
+	printSyntaxError (1, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	[Code1, CurrLine1, CurrCol1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable, TheCodeLine),
+	Arr = [false, Code1, CurrLine1, CurrCol1,  Errors+1, Tokens, Precedence, SymbolTable1, TokenName1, TokenType1, TheCodeLine1].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'matchAssign':                                                                  *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+matchAssign (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '0' , TheCodeLine) = Arr =>
+	printSyntaxError (0, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	[Code1, CurrLine1, CurrCol1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable, TheCodeLine),
+	Arr = [false, Code1, CurrLine1, CurrCol1,  Errors+1, Tokens, Precedence, SymbolTable1, TokenName1, TokenType1, TheCodeLine1].
+
+matchAssign (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '1' , TheCodeLine) = Arr =>
+	printSyntaxError (2, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	[Code1, CurrLine1, CurrCol1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable, TheCodeLine),
+	Arr = [false, Code1, CurrLine1, CurrCol1,  Errors+1, Tokens, Precedence, SymbolTable1, TokenName1, TokenType1, TheCodeLine1].
+
+matchAssign (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '2' , TheCodeLine) = Arr =>
+	printSyntaxError (16, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	[Code1, CurrLine1, CurrCol1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable, TheCodeLine),
+	Arr = [false, Code1, CurrLine1, CurrCol1,  Errors+1, Tokens, Precedence, SymbolTable1, TokenName1, TokenType1, TheCodeLine1].
+
+matchAssign (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, ";", '3' , TheCodeLine) = Arr =>
+	printSyntaxError (15, Errors + 1, ";", TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, Tokens, Precedence, SymbolTable, ";", '3', TheCodeLine].
+
+matchAssign (Code, CurrLine, CurrCol, Errors, _, Tokens, Precedence, SymbolTable, "=", '3' , TheCodeLine) = Arr =>
+	[Code1, CurrLine1, CurrCol1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable, TheCodeLine),
+	Arr = [true, Code1, CurrLine1, CurrCol1,  Errors, Tokens, Precedence, SymbolTable1, TokenName1, TokenType1, TheCodeLine1].
+
+matchAssign (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '3' , TheCodeLine) = Arr =>
+	printSyntaxError (1, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	[Code1, CurrLine1, CurrCol1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable, TheCodeLine),
+	Arr = [false, Code1, CurrLine1, CurrCol1,  Errors+1, Tokens, Precedence, SymbolTable1, TokenName1, TokenType1, TheCodeLine1].
+
+matchAssign (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '5' , TheCodeLine) = Arr =>
+	printSyntaxError (8, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	[Code1, CurrLine1, CurrCol1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable, TheCodeLine),
+	Arr = [false, Code1, CurrLine1, CurrCol1,  Errors+1, Tokens, Precedence, SymbolTable1, TokenName1, TokenType1, TheCodeLine1].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'matchExp':                                                                     *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+matchExp (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '5', TheCodeLine) = Arr =>
+	printSyntaxError (9, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors + 1, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '5', TheCodeLine].
+matchExp (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, TokenType, TheCodeLine) = Arr =>
+	[Is_Processed, Code1, CurrLine1, CurrCol1, Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1]
+		= matchTerm (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, TokenType, TheCodeLine),
+	if (Is_Processed == true) then
+		[Is_Processed2, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+			= matchExpPrime (Code1, CurrLine1, CurrCol1, Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1),
+		if (Is_Processed2 == true) then
+			Arr = [true, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+		else
+			Arr = [false, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+		end
+	else
+		Arr = [false, Code1, CurrLine1, CurrCol1,  Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1]
+	end.
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'matchTerm':                                                                    *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+matchTerm (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, TokenType, TheCodeLine) = Arr =>
+	[Is_Processed, Code1, CurrLine1, CurrCol1, Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1]
+		= matchFact (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, TokenType, TheCodeLine),
+	if (Is_Processed == true) then
+		[Is_Processed2, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+			= matchTermPrime (Code1, CurrLine1, CurrCol1, Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1),
+		if (Is_Processed2 == true) then
+			Arr = [true, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+		else
+			Arr = [false, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+		end
+	else
+		Arr = [false, Code1, CurrLine1, CurrCol1,  Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1]
+	end.
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'matchExpPrime':                                                                *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+matchExpPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '0', TheCodeLine ) = Arr =>
+	printSyntaxError (0, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '0', TheCodeLine].
+matchExpPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '1', TheCodeLine) = Arr =>
+	printSyntaxError (3, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '1', TheCodeLine].
+matchExpPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '2', TheCodeLine ) = Arr =>
+	printSyntaxError (3, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '2', TheCodeLine].
+matchExpPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '5', TheCodeLine ) = Arr =>
+	printSyntaxError (7, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '5', TheCodeLine].
+matchExpPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, ";", '3', TheCodeLine )
+	= [true, Code, CurrLine, CurrCol,  Errors, OpenParens, Tokens, Precedence, SymbolTable, ";", '3', TheCodeLine].
+matchExpPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "*", '3', TheCodeLine )
+	= [true, Code, CurrLine, CurrCol,  Errors, OpenParens, Tokens, Precedence, SymbolTable, "*", '3', TheCodeLine].
+matchExpPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "(", '3', TheCodeLine) = Arr =>
+	printSyntaxError (11, Errors + 1, "(", TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, "(", '3', TheCodeLine].
+matchExpPrime (Code, CurrLine, CurrCol, Errors, 0, Tokens, Precedence, SymbolTable, ")", '3', TheCodeLine ) = Arr =>
+	printSyntaxError (4, Errors + 1, ")", TheCodeLine, CurrLine, CurrCol, 0),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, 0, Tokens, Precedence, SymbolTable, ")", '3', TheCodeLine].
+matchExpPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, ")", '3', TheCodeLine ) = Arr =>
+	[Tokens1, Precedence1, Errors1, SymbolTable1] = process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, ")", '3', 4),
+	[Code2, CurrLine2, CurrCol2, SymbolTable2, TokenName2, TokenType2, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable1, TheCodeLine),
+	Arr = [true, Code2, CurrLine2, CurrCol2, Errors1, OpenParens - 1, Tokens1, Precedence1, SymbolTable2, TokenName2, TokenType2, TheCodeLine1].
+matchExpPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "+", '3', TheCodeLine ) = Arr =>
+	[Tokens7, Precedence7, Errors7, SymbolTable7] = process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, "+", '3', 3),
+	[Code8, CurrLine8, CurrCol8, SymbolTable8, TokenName8, TokenType8, TheCodeLine8] = nextToken (Code, CurrLine, CurrCol, SymbolTable7, TheCodeLine),
+
+	[Is_Processed, Code1, CurrLine1, CurrCol1, Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1]
+		= matchTerm (Code8, CurrLine8, CurrCol8, Errors7, OpenParens, Tokens7, Precedence7, SymbolTable8, TokenName8, TokenType8, TheCodeLine8),
+	if (Is_Processed == true) then
+		[Is_Processed2, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+			= matchExpPrime (Code1, CurrLine1, CurrCol1, Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1),
+		if (Is_Processed2 == true) then
+			Arr = [true, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+		else
+			Arr = [false, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+		end
+	else
+		Arr = [false, Code1, CurrLine1, CurrCol1,  Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1]
+	end.
+matchExpPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "-", '3', TheCodeLine ) = Arr =>
+	[Tokens7, Precedence7, Errors7, SymbolTable7] = process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, "-", '3', 3),
+	[Code8, CurrLine8, CurrCol8, SymbolTable8, TokenName8, TokenType8, TheCodeLine8] = nextToken (Code, CurrLine, CurrCol, SymbolTable7, TheCodeLine),
+
+	[Is_Processed, Code1, CurrLine1, CurrCol1, Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1]
+		= matchTerm (Code8, CurrLine8, CurrCol8, Errors7, OpenParens, Tokens7, Precedence7, SymbolTable8, TokenName8, TokenType8, TheCodeLine8),
+	if (Is_Processed == true) then
+		[Is_Processed2, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+			= matchExpPrime (Code1, CurrLine1, CurrCol1, Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1),
+		if (Is_Processed2 == true) then
+			Arr = [true, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+		else
+			Arr = [false, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+		end
+	else
+		Arr = [false, Code1, CurrLine1, CurrCol1,  Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1]
+	end.
+matchExpPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "=", '3', TheCodeLine ) = Arr =>
+	printSyntaxError (12, Errors + 1, "=", TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, "=", '3', TheCodeLine].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'matchFact':                                                                    *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+matchFact (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '0', TheCodeLine) = Arr =>
+	printSyntaxError (0, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '0', TheCodeLine].
+matchFact (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '1', TheCodeLine) = Arr =>
+	[Tokens1, Precedence1, Errors1, SymbolTable1] = process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, TokenName, '1', -1),
+	[Code2, CurrLine2, CurrCol2, SymbolTable2, TokenName2, TokenType2, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable1, TheCodeLine),
+	Arr = [true, Code2, CurrLine2, CurrCol2,  Errors1, OpenParens, Tokens1, Precedence1, SymbolTable2, TokenName2, TokenType2, TheCodeLine1].
+matchFact (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '2', TheCodeLine) = Arr =>
+	[Tokens1, Precedence1, Errors1, SymbolTable1] = process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, TokenName, '2', -1),
+	[Code2, CurrLine2, CurrCol2, SymbolTable2, TokenName2, TokenType2, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable1, TheCodeLine),
+	Arr = [true, Code2, CurrLine2, CurrCol2,  Errors1, OpenParens, Tokens1, Precedence1, SymbolTable2, TokenName2, TokenType2, TheCodeLine1].
+matchFact (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '5', TheCodeLine) = Arr =>
+	printSyntaxError (7, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '5', TheCodeLine].
+matchFact (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, ";", '3', TheCodeLine) = Arr =>
+	printSyntaxError (6, Errors + 1, ";", TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, ";", '3', TheCodeLine].
+matchFact (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, ")", '3', TheCodeLine) = Arr =>
+	printSyntaxError (14, Errors + 1, ")", TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, ")", '3', TheCodeLine].
+matchFact (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "(", '3', TheCodeLine) = Arr =>
+	[Tokens1, Precedence1, Errors1, SymbolTable1] = process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, "(", '3', 0),
+	[Code2, CurrLine2, CurrCol2, SymbolTable2, TokenName2, TokenType2, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable1, TheCodeLine),
+	[Is_Processed, Code3, CurrLine3, CurrCol3, Errors3, OpenParens3, Tokens3, Precedence3, SymbolTable3, TokenName3, TokenType3, TheCodeLine3]
+		= matchExp (Code2, CurrLine2, CurrCol2, Errors1, OpenParens+1, Tokens1, Precedence1, SymbolTable2, TokenName2, TokenType2, TheCodeLine1),
+	if (Is_Processed == true) then
+		Arr = [true, Code3, CurrLine3, CurrCol3, Errors3, OpenParens3, Tokens3, Precedence3, SymbolTable3, TokenName3, TokenType3, TheCodeLine3]
+	else
+		Arr = [false, Code3, CurrLine3, CurrCol3,  Errors3, OpenParens3, Tokens3, Precedence3, SymbolTable3, TokenName3, TokenType3, TheCodeLine3]
+	end.
+matchFact (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "+", '3', TheCodeLine) = Arr =>
+	[Tokens1, Precedence1, Errors1, SymbolTable1] = process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, "+", '3', 1),
+	[Code2, CurrLine2, CurrCol2, SymbolTable2, TokenName2, TokenType2, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable1, TheCodeLine),
+	[Is_Processed, Code3, CurrLine3, CurrCol3, Errors3, OpenParens3, Tokens3, Precedence3, SymbolTable3, TokenName3, TokenType3, TheCodeLine3]
+		= matchFact (Code2, CurrLine2, CurrCol2, Errors1, OpenParens, Tokens1, Precedence1, SymbolTable2, TokenName2, TokenType2, TheCodeLine1),
+	if (Is_Processed == true) then
+		Arr = [true, Code3, CurrLine3, CurrCol3, Errors3, OpenParens3, Tokens3, Precedence3, SymbolTable3, TokenName3, TokenType3, TheCodeLine3]
+	else
+		Arr = [false, Code3, CurrLine3, CurrCol3,  Errors3, OpenParens3, Tokens3, Precedence3, SymbolTable3, TokenName3, TokenType3, TheCodeLine3]
+	end.
+matchFact (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "-", '3', TheCodeLine) = Arr =>
+	[Tokens1, Precedence1, Errors1, SymbolTable1] = process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, "-", '3', 1),
+	[Code2, CurrLine2, CurrCol2, SymbolTable2, TokenName2, TokenType2, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable1, TheCodeLine),
+	[Is_Processed, Code3, CurrLine3, CurrCol3, Errors3, OpenParens3, Tokens3, Precedence3, SymbolTable3, TokenName3, TokenType3, TheCodeLine3]
+		= matchFact (Code2, CurrLine2, CurrCol2, Errors1, OpenParens, Tokens1, Precedence1, SymbolTable2, TokenName2, TokenType2, TheCodeLine1),
+	if (Is_Processed == true) then
+		Arr = [true, Code3, CurrLine3, CurrCol3, Errors3, OpenParens3, Tokens3, Precedence3, SymbolTable3, TokenName3, TokenType3, TheCodeLine3]
+	else
+		Arr = [false, Code3, CurrLine3, CurrCol3,  Errors3, OpenParens3, Tokens3, Precedence3, SymbolTable3, TokenName3, TokenType3, TheCodeLine3]
+	end.
+matchFact (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "=", '3', TheCodeLine) = Arr =>
+	printSyntaxError (12, Errors + 1, "=", TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, "=", '3', TheCodeLine].
+matchFact (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "*", '3', TheCodeLine) = Arr =>
+	printSyntaxError (13, Errors + 1, "*", TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, "*", '3', TheCodeLine].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'matchTermPrime':                                                               *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+matchTermPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '0', TheCodeLine ) = Arr =>
+	printSyntaxError (0, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '0', TheCodeLine].
+matchTermPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '1', TheCodeLine ) = Arr =>
+	printSyntaxError (3, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '1', TheCodeLine].
+matchTermPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '2', TheCodeLine ) = Arr =>
+	printSyntaxError (3, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '2', TheCodeLine].
+matchTermPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '5', TheCodeLine ) = Arr =>
+	printSyntaxError (7, Errors + 1, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, TokenName, '5', TheCodeLine].
+matchTermPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, ";", '3', TheCodeLine )
+	= [true, Code, CurrLine, CurrCol,  Errors, OpenParens, Tokens, Precedence, SymbolTable, ";", '3', TheCodeLine].
+matchTermPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "+", '3', TheCodeLine )
+	= [true, Code, CurrLine, CurrCol,  Errors, OpenParens, Tokens, Precedence, SymbolTable, "+", '3', TheCodeLine].
+matchTermPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "-", '3', TheCodeLine )
+	= [true, Code, CurrLine, CurrCol,  Errors, OpenParens, Tokens, Precedence, SymbolTable, "-", '3', TheCodeLine].
+matchTermPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "(", '3', TheCodeLine ) = Arr =>
+	printSyntaxError (11, Errors + 1, "(", TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, "(", '3', TheCodeLine].
+matchTermPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "=", '3', TheCodeLine ) = Arr =>
+	printSyntaxError (12, Errors + 1, "=", TheCodeLine, CurrLine, CurrCol, OpenParens),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, OpenParens, Tokens, Precedence, SymbolTable, "=", '3', TheCodeLine].
+matchTermPrime (Code, CurrLine, CurrCol, Errors, 0, Tokens, Precedence, SymbolTable, ")", '3', TheCodeLine ) = Arr =>
+	printSyntaxError (4, Errors + 1, ")", TheCodeLine, CurrLine, CurrCol, 0),
+	Arr = [false, Code, CurrLine, CurrCol,  Errors+1, 0, Tokens, Precedence, SymbolTable, ")", '3', TheCodeLine].
+matchTermPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, ")", '3', TheCodeLine ) = Arr =>
+	[Tokens1, Precedence1, Errors1, SymbolTable1] = process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, ")", '3', 4),
+	[Code2, CurrLine2, CurrCol2, SymbolTable2, TokenName2, TokenType2, TheCodeLine1] = nextToken (Code, CurrLine, CurrCol, SymbolTable1, TheCodeLine),
+	Arr = [true, Code2, CurrLine2, CurrCol2, Errors1, OpenParens - 1, Tokens1, Precedence1, SymbolTable2, TokenName2, TokenType2, TheCodeLine1].
+matchTermPrime (Code, CurrLine, CurrCol, Errors, OpenParens, Tokens, Precedence, SymbolTable, "*", '3', TheCodeLine ) = Arr =>
+	[Tokens7, Precedence7, Errors7, SymbolTable7] = process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, "*", '3', 2),
+	[Code8, CurrLine8, CurrCol8, SymbolTable8, TokenName8, TokenType8, TheCodeLine8] = nextToken (Code, CurrLine, CurrCol, SymbolTable7, TheCodeLine),
+
+	[Is_Processed, Code1, CurrLine1, CurrCol1, Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1]
+		= matchFact (Code8, CurrLine8, CurrCol8, Errors7, OpenParens, Tokens7, Precedence7, SymbolTable8, TokenName8, TokenType8, TheCodeLine8),
+	if (Is_Processed == true) then
+		[Is_Processed2, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+			= matchTermPrime (Code1, CurrLine1, CurrCol1, Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1),
+		if (Is_Processed2 == true) then
+			Arr = [true, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+		else
+			Arr = [false, Code2, CurrLine2, CurrCol2, Errors2, OpenParens2, Tokens2, Precedence2, SymbolTable2, TokenName2, TokenType2, TheCodeLine2]
+		end
+	else
+		Arr = [false, Code1, CurrLine1, CurrCol1,  Errors1, OpenParens1, Tokens1, Precedence1, SymbolTable1, TokenName1, TokenType1, TheCodeLine1]
+	end.
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'matchSemicolon':                                                               *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+matchSemicolon (Code, CurrLine, CurrCol, Errors, Tokens, Precedence, SymbolTable, TheCodeLine) = Arr =>
+	[Tokens1, Precedence1, Errors1, SymbolTable1] = process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, "0", '0', 4),
+	Arr = [true, Code, CurrLine, CurrCol, Errors1, Tokens1, Precedence1, SymbolTable1, "0", '0', TheCodeLine].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'printSyntaxError':                                                             *
+* Output: Display of the corresponding syntax error on the screen.                *
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+* Message encoding:                                                               *
+* '0' -> If a prohibited character (symbol) was encountered                       *
+* '1' -> If the left side of the assignment contains a symbol                     *
+* '2' -> If the left side of the assignment contains an extra variable            *
+* '3' -> If the right side of the assignment contains an extra expression         *
+* '4' -> If there is an extra closing parenthesis                                 *
+* '5' -> If there is an extra semicolon                                           *
+* '6' -> If there is an inappropriate expression before the semicolon             *
+* '7' -> If the semicolon is missing                                              *
+* '8' -> If there is a lone identifier without an assignment                      *
+* '9' -> If there is no expression to the right of the assignment symbol          *
+* '10' -> If there are extra opening parentheses                                  *
+* '11' -> If there is an opening parenthesis without a binary symbol before it    *
+* '12' -> If there are too many assignment operators                              *
+* '13' -> If there is a '*' after a binary operator                               *
+* '14' -> If there is an inappropriate expression before a closing parenthesis    *
+* '15' -> If a semicolon comes before an assignment symbol                        *
+* '16' -> If the left side of the assignment contains a literal                   *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+printSyntaxError (Message, Errors, TokenName, TheCodeLine, CurrLine, CurrCol, OpenParens) => 
+	if (Errors == 1) then
+		printErrorsHeader
+	end,
+	print ("\n"),
+	print (Errors),
+	print (") Syntax Error:\n"),
+	message (Message, TokenName, OpenParens),
+	print ("\n\non line "),
+	print (CurrLine),
+	print (":\n\n"),
+	if (Message != 10) then
+		printErrorLine (TheCodeLine, CurrCol)
+	else
+		print ("\t"),
+		print (TheCodeLine),
+		print("\n")
+	end,
+	print ("\n--------------------------------------------------------\n").
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+ * 'message':                                                                     *
+ * Print the specific message.                                                    *
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+message (0, TokenName, _) =>
+	print ("You are using a prohibited symbol:\n\n\t"),
+	print (TokenName).
+message (1, TokenName, _) =>
+	print ("The left hand side of an assignment cannot contain\n\n\t"),
+	print (TokenName),
+	print ("\n\n(a symbol)").
+message (2, TokenName, _) =>
+	print ("There is an extra variable:\n\n\t"),
+	print (TokenName).
+message (3, TokenName, _) =>
+	print ("There is an extra expression:\n\n\t"),
+	print (TokenName).
+message (4, _, _) =>
+	print ("There is an extra closing parenthesis\n\n\t)").
+message (5, _, _) =>
+	print ("There is an extra semicolon\n\n\t;").
+message (6, _, _) =>
+	print ("A semicolon\n\n\t;\n\n"),
+	print ("cannot come after an inappropriate expression").
+message (7, _, _) =>
+	print ("A semicolon\n\n\t;\n\n"),
+	print ("is missing").
+message (8, _, _) =>
+	print ("There is a lone identifier").
+message (9, _, _) =>
+	print ("There is no expression to the right of the assignment symbol").
+message (10, _, OpenParens) =>
+	print ("There are "),
+	print (OpenParens),
+	print (" extra opening parentheses").
+message (11, _, _) =>
+	print ("An opening parenthesis\n\n\t(\n\n"),
+	print ("cannot follow an expression without a binary operation").
+message (12, _, _) =>
+	print ("There is an extra assignment operator\n\n\t=").
+message (13, _, _) =>
+	print ("A multiplication symbol\n\n\t*\n\n"),
+	print ("cannot follow another binary operation").
+message (14, _, _) =>
+	print ("A closing parenthesis\n\n\t)\n\n"),
+	print ("cannot come after an inappropriate expression").
+message (15, _, _) =>
+	print ("A semicolon\n\n\t;\n\n"),
+	print ("must not come before an assignment operator =").
+message (16, TokenName, _) =>
+	print ("The left hand side of an assignment cannot contain\n\n\t"),
+	print (TokenName),
+	print ("\n\n(a literal)").
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+ * 'printErrorLine':                                                              *
+ * Print the line of error.                                                       *
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+printErrorLine (TheCodeLine, CurrCol) =>
+	print ("\t"),
+	print (TheCodeLine),
+	print ("\n\t"),
+	foreach (_ in 1..CurrCol-1)
+		print (" ")
+	end,
+	print("^\n").
+	
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'printErrorsHeader':                                                            *
+* Input: None.                                                                    *
+* Output: Print the header of the error messages' section                         *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+printErrorsHeader => print ("------------------------ ERRORS ------------------------\n").
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'printErrorsFooter':                                                            *
+* Input: Errors.                                                                  *
+* Output: Print the footer of the error messages' section                         *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+printErrorsFooter(Errors) => 
+	print ("Totally: "),
+	print (Errors),
+	print (" Errors.\n--------------------------------------------------------\n").
+
+/* Variables's Values Printing Function */
+        
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'printValuesOfVariables':                                                       *
+* Input: SymbolTable.                                                             *
+* Output: Print the value of all the variables after the assignments were made.   *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+printValuesOfVariables (SymbolTable) =>
+	TheKeys = keys(SymbolTable),
+	foreach (I in TheKeys)
+		print (I),
+		print (" = "),
+		print (head(get (SymbolTable, I))),
+		print ("\n")
+	end.
