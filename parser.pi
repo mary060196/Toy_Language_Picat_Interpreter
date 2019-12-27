@@ -443,7 +443,7 @@ printSyntaxError (Message, Errors, TokenName, TheCodeLine, CurrLine, CurrCol, Op
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * 'message':                                                                     *
  * Print the specific message.                                                    *
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 message (0, TokenName, _) =>
 	print ("You are using a prohibited symbol:\n\n\t"),
 	print (TokenName).
@@ -497,7 +497,7 @@ message (16, TokenName, _) =>
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * 'printErrorLine':                                                              *
  * Print the line of error.                                                       *
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 printErrorLine (TheCodeLine, CurrCol) =>
 	print ("\t"),
 	print (TheCodeLine),
