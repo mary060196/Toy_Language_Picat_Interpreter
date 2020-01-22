@@ -27,13 +27,13 @@
 __Statistical details of the performed changes__:
 - Length (only in lines of code, without comments and blank lines) of individual modules:
 
-  - toylang - from 54 to 50 - a reduction of 7,4074074074%.
+  - `toylang.pi` - from 54 to 50 - a reduction of 7,4074074074%.
 
-  - parser - from 411 to 206 - a reduction of 49,8783454988%.
+  - `parser.pi` - from 411 to 206 - a reduction of 49,8783454988%.
 
-  - semantics - from 294 to 99 - a reduction of 66,3265306122%.
+  - `semantics.pi` - from 294 to 99 - a reduction of 66,3265306122%.
 
-  - tokenizer - from 57 to 28 - a reduction of 50,8771929825%.
+  - `tokenizer.pi` - from 57 to 28 - a reduction of 50,8771929825%.
 
 - Length of the Entire Program:
 
@@ -45,9 +45,9 @@ __Statistical details of the performed changes__:
 
 - Total running time of the program on example programs (in milliseconds):
 
-  - "test.txt" - from 8 to 8 - no change.
+  - `test.txt` - from 8 to 8 - no change.
 
-  - "errors1.txt" - from 133 to 128 - a reduction of 3,7593984962%.
+  - `errors1.txt` - from 133 to 128 - a reduction of 3,7593984962%.
 
 ## Getting Started
 - Download the Picat processor to your device from http://picat-lang.org/download.html
@@ -68,8 +68,8 @@ __Statistical details of the performed changes__:
 
 ## Examples
 - See program examples at http://www.sci.brooklyn.cuny.edu/~zhou/teaching/cis3160/project.html.
-- Try the interpreter on `errors1.txt`, `errors2.txt`,`errors3.txt`,`errors4.txt`, `test.txt`, `test2.txt`, `test3.txt`, and `test4.txt` found in this repository. 
-- The files `errors1.txt`, `errors2.txt`,`errors3.txt`, and `errors4.txt` test for 17 different syntactic errors and 1 semantic error (uninitialized variables). 
+- Try the interpreter on `errors1.txt`, `errors2.txt`, `errors3.txt`, `errors4.txt`, `test.txt`, `test2.txt`, `test3.txt`, and `test4.txt` found in this repository. 
+- The files `errors1.txt`, `errors2.txt`, `errors3.txt`, and `errors4.txt` test for 17 different syntactic errors and 1 semantic error (uninitialized variables). 
 - The files `test.txt`, `test2.txt`, `test3.txt`, and `test4.txt` contain _no_ errors. Use them to see how the interpreter successfully prints the values of all the variables.
 <hr>
 
