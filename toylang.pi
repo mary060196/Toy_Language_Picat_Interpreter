@@ -1,0 +1,95 @@
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\ 
+*                                    Program's Main File                                          *
+*           CISC 3160 - Programming Languages - Winter 2019 - Toy Language Project                *
+* Author:                                                                                         *
+*   Miriam Briskman                                                                               *
+* Supervised by:                                                                                  *
+*   Professor Neng-Fa Zhou                                                                        *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+module toylang.
+import parser.
+
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+%                    Main Program Functions                    %
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+
+% One-argument 'main' predicate accepting the name of the file with the code:
+main([H|_]) => mainAux (H, true).
+
+% If no filename was passed during the running of the program:
+main => mainAux ([], false).
+
+mainAux (FileName, WasArgumentPassed) =>
+	printInterpreterHeader,
+	% Construct an empty symbol table:
+	SymbolTable = new_map(0),
+	if (WasArgumentPassed) then
+		H = FileName,
+		print("\n")
+	else
+		print ("\nHello! Please enter the name of the text file containing the\n"),
+		print ("code to interpret and press ENTER. You can enter the file's\n"),
+		print ("name without the .txt extension: >> "),
+		H = read_picat_token(),
+		print ("\nThank you! ")
+	end,
+	% Print the time it took the program to execute:
+	time(process_file (to_string(H)++".txt", SymbolTable)).
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'printInterpreterHeader':                                                       *
+* Input: None.                                                                    *
+* Process: Print the header of the program at its launch.                         *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+printInterpreterHeader =>
+	print ("\n~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~\n"),
+	print ("~*                                                         *~\n"),
+	print ("~*                Toy Language Interpreter                 *~\n"),
+	print ("~*                                                         *~\n"),
+	print ("~*                     Picat Version                       *~\n"),
+	print ("~*                                                         *~\n"),
+	print ("~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~\n"),
+	print ("~*                                                         *~\n"),
+	print ("~*     CISC 3160 - Programming Languages - Winter 2019     *~\n"),
+	print ("~*                                                         *~\n"),
+	print ("~*                 Professor: Neng-Fa Zhou                 *~\n"),
+	print ("~*                                                         *~\n"),
+	print ("~*               Written by: Miriam Briskman               *~\n"),
+	print ("~*                                                         *~\n"),
+	print ("~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~\n").
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'process_file':                                                                 *
+* Input: Filename ( name of file containing code) and SymbolTable.                *
+* Process: Fetch the code from the file and call the parser.                      *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+process_file (Filename, SymbolTable) =>
+	print ("The entered filename is:\n" ++ Filename ++ "\n"),
+	catch (Reader = open (Filename, read), _, process_file_error (Filename) ),
+	print ("\nThe file\n\t" ++ Filename ++ "\nhas successfully opened.\n\n"),
+	print ("Interpreting the code...\n\n"),
+
+	% Read the content of the file into Code:
+	% [ Read_file_lines does not work (with or without assignment) ]
+	L = read_line(Reader),
+	Code = [],
+	while (L != end_of_file)
+		Code := Code ++ [L],
+		L := read_line(Reader)
+	end,
+	close(Reader),
+	parser (Code, SymbolTable).
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'process_file_error':                                                           *
+* Input: Filename ( name of file containing code).                                *
+* Process: Display an error if the file could not open.                           *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+process_file_error (Filename) =>
+	print ("\nError: the file \n\t" ++ Filename ++ "\nwhose you name you entered could not open.\n\n"),
+	abort.
+
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+%                        End of Program                        %
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%

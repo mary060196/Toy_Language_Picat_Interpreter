@@ -1,0 +1,158 @@
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+%                      Semantic Analyzer                       %
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+
+module semantics.
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'process':                                                                      *
+* Input: TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable,          *
+*    TokenName, TokenType, and PrecedenceOfToken.                                 *
+* Process: Evaluate a given expression or sub-expression.                         *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+process (_, _, Errors, Tokens, Precedence, SymbolTable, TokenName, TokenType, -1)
+	= [[[TokenName, TokenType] | Tokens], Precedence, Errors, SymbolTable].
+process (_, _, Errors, Tokens, [0 | T1], SymbolTable, _, _, 4)
+	= [Tokens, T1, Errors, SymbolTable].
+process (TheCodeLine, CurrLine, Errors, Tokens, Precedence@[1 | _], SymbolTable, _, _, 4) = Arr =>
+	[_, Tokens1, Precedence1, Errors1, SymbolTable1]
+		= processUnary (TheCodeLine, CurrLine, Tokens, Precedence, Errors, SymbolTable),
+	Arr = process (TheCodeLine, CurrLine, Errors1, Tokens1, Precedence1, SymbolTable1, "m", '0', 4).
+process (TheCodeLine, CurrLine, Errors, Tokens, Precedence@[H | _], SymbolTable, _, _, 4) = Arr, (H== 2; H==3)  =>
+	[_, Tokens1, Precedence1, Errors1, SymbolTable1]
+		= processBinary (TheCodeLine, CurrLine, Tokens, Precedence, Errors, SymbolTable),
+	Arr = process (TheCodeLine, CurrLine, Errors1, Tokens1, Precedence1, SymbolTable1, "m", '0', 4).
+process (TheCodeLine, CurrLine, Errors, Tokens@[[Name1, Type1], [Name2, _] | _], Precedence@[4 | _], SymbolTable, _, _, 4) = Arr =>
+	List = checkIfInTable (Name1, Type1, SymbolTable, TheCodeLine, CurrLine, Errors),
+	if (List[1] == true) then
+		put (SymbolTable, Name2, [List[2], true]),
+		Arr = [[], [4], Errors, SymbolTable]
+	else
+		Arr = [Tokens, Precedence, Errors+1, SymbolTable]
+	end.
+process (_, _, Errors, Tokens, Precedence, SymbolTable, "(", _, _)
+	= [Tokens, [0|Precedence], Errors, SymbolTable].
+process (_, _, Errors, Tokens, Precedence@[0|_], SymbolTable, TokenName, TokenType, PrecedenceOfToken)
+	= [[[TokenName, TokenType] | Tokens], [PrecedenceOfToken | Precedence], Errors, SymbolTable].
+process (_, _, Errors, Tokens, Precedence, SymbolTable, "-", _, 1) = Arr =>
+	[Tokens1, Precedence1] = toggleUnary (Tokens, Precedence),
+	Arr = [Tokens1, Precedence1, Errors, SymbolTable].
+process (_, _, Errors, Tokens, Precedence, SymbolTable, "+", _, 1)
+	= [Tokens, Precedence, Errors, SymbolTable].
+process (_, _, Errors, Tokens, Precedence@[H1|_], SymbolTable, TokenName, TokenType, H) = Arr, H < H1, (H == 2 ; H == 3) =>
+	Arr = [[[TokenName, TokenType] | Tokens], [H | Precedence], Errors, SymbolTable].
+process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, TokenName, TokenType, 2) = Arr =>
+	List1 = processUnary (TheCodeLine, CurrLine, Tokens, Precedence, Errors, SymbolTable),
+	Arr = completeTheBinaryOp (List1, 2, TheCodeLine, CurrLine, Errors, TokenName, TokenType).
+process (TheCodeLine, CurrLine, Errors, Tokens, Precedence, SymbolTable, TokenName, TokenType, 3) = Arr =>
+	List1 = processUnary (TheCodeLine, CurrLine, Tokens, Precedence, Errors, SymbolTable),
+	List2 = processBinary (TheCodeLine, CurrLine, List1[2], List1[3], List1[4], List1[5]),
+	Arr = completeTheBinaryOp (List2, 3, TheCodeLine, CurrLine, Errors, TokenName, TokenType).
+		
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'completeTheBinaryOp':                                                          *
+* Input: List, TypeOfOp, TheCodeLine, CurrLine, Errors, TokenName, TokenType.     *
+* Process: Call 'processBinary' and check if errors were made before returning.   *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+completeTheBinaryOp (List, TypeOfOp, TheCodeLine, CurrLine, Errors, TokenName, TokenType) = Arr =>
+	if (head(List[3]) == TypeOfOp) then
+		List2 = processBinary (TheCodeLine, CurrLine, List[2], List[3], List[4], List[5])
+	else
+		List2 = List
+	end,
+	if (Errors == List2[4]) then
+		Arr = [[[TokenName, TokenType] | List2[2] ], [TypeOfOp | List2[3]], List2[4], List2[5]]
+	else
+		Arr = tail(List2)
+	end.
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'toggleUnary':                                                                  *
+* Input: Tokens and Precedence.                                                   *
+* Process: Condense the sequence of unary arithmetic operators.                   *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+toggleUnary ([], Precedence@[H|_]) = List, (H == 4; H == 0) => List = [[["-", '3']], [1|Precedence]].
+toggleUnary ([["-"|T0]|T1], Precedence@[3|_]) = [ [ ["+"|T0]|T1], Precedence].
+toggleUnary ([["-"|_]|T1], [1|T2]) = [T1, T2].
+toggleUnary (Tokens, Precedence) = [[["-", '3']|Tokens], [1|Precedence]].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'processBinary':                                                                *
+* Input: TheCodeLine, CurrLine, Tokens, Precedence, Errors, and SymbolTable.      *
+* Process: Evaluate binary operations.                                            *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+processBinary (_, _, Tokens, Precedence@[H | _], Errors, SymbolTable) = Arr, (H != 2, H != 3) =>
+	Arr = [true, Tokens, Precedence, Errors, SymbolTable].
+processBinary (TheCodeLine, CurrLine, Tokens, Precedence@[H | _], Errors, SymbolTable) =
+	processBinary (TheCodeLine, CurrLine, Tokens, Precedence, Errors, SymbolTable, H, true).
+
+/* The Second Version of 'processBinary' that is being called above: */
+processBinary (_, _, Tokens, [H | T], Errors, SymbolTable, PrevPrecedenceOfToken, NoErrors) = Arr,  (PrevPrecedenceOfToken != H) =>
+	Arr = [NoErrors, Tokens, [H | T], Errors, SymbolTable].
+processBinary (_, _, Tokens, [H | T], Errors, SymbolTable, _, false) = Arr =>
+	Arr = [false, Tokens, [H | T], Errors, SymbolTable].
+processBinary (TheCodeLine, CurrLine, [[Name1,Type1],[Op,_],[Name3, Type3]|TokensRest], [H | T], Errors, SymbolTable, _, _) = Arr =>
+	List1 = checkIfInTable (Name1, Type1, SymbolTable, TheCodeLine, CurrLine, Errors),
+	List3 = checkIfInTable (Name3, Type3, SymbolTable, TheCodeLine, CurrLine, List1[3]),
+	if (List1[1] == true, List3[1] == true) then
+		NoErrors = true,
+		NewTokens = [[to_string( applyOperation(Op, List1[2], List3[2]) ), '2']|TokensRest]
+	else
+		NoErrors = false,
+		NewTokens = [["1", '2']|TokensRest] % Return with the fake token ["1", '2']
+	end,
+	Arr = processBinary (TheCodeLine, CurrLine, NewTokens, T, max(Errors, List3[3]), SymbolTable, H, NoErrors).
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'applyOperation':                                                               *
+* Input: Operation, Num1, Num2.                                                   *
+* Process: Add, subtract or multiply, depending on the operation.                 *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+applyOperation ("+", Num1, Num2) = Num1 + Num2.
+applyOperation ("-", Num1, Num2) = Num2 - Num1.
+applyOperation ("*", Num1, Num2) = Num1 * Num2.
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'processUnary':                                                                 *
+* Input: TheCodeLine, CurrLine, Tokens, Precedence, Errors, and SymbolTable.      *
+* Process: Evaluate unary operations.                                             *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+processUnary (TheCodeLine, CurrLine, [[Name1,Type1], _ | TokensRest], [1 | T], Errors, SymbolTable) = Arr =>
+	List = checkIfInTable (Name1, Type1, SymbolTable, TheCodeLine, CurrLine, Errors),
+	if (List[1] == true) then
+		Arr = [true, [[to_string(-List[2]), '2']|TokensRest], T, Errors, SymbolTable]
+	else
+		Arr = [false, [[Name1,Type1] | TokensRest], T, Errors + 1, SymbolTable]
+	end.
+processUnary (_, _, Tokens, Precedence, Errors, SymbolTable) = [true, Tokens, Precedence, Errors, SymbolTable].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'checkIfInTable':                                                               *
+* Input: TokenName, TokenType, SymbolTable, TheCodeLine, CurrLine, Errors.        *
+* Process: Check if the variable is initialized.                                  *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+checkIfInTable (TokenName, '1', SymbolTable, _, _, Errors) = Arr, head(tail(get(SymbolTable, TokenName))) == true =>
+	Arr = [true, head(get(SymbolTable, TokenName)), Errors].
+checkIfInTable (TokenName, '1', _, TheCodeLine, CurrLine, Errors) = Arr =>
+	printSemanticError (TheCodeLine, CurrLine, TokenName, Errors + 1),
+	Arr = [false, 0, Errors + 1].
+checkIfInTable (TokenName, '2', _, _, _, Errors) = [true, to_int(TokenName), Errors].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'printSemanticError':                                                           *
+* Input: TheCodeLine, CurrLine, Name, Errors.                                     *
+* Process: Print the location of a semantic error (uninitialized variables).      *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+printSemanticError (TheCodeLine, CurrLine, Name, Errors) =>
+	if (Errors == 1) then
+		print ("------------------------ ERRORS ------------------------\n")
+	end,
+	print ("\n" ++ to_string(Errors) ++ ") Semantic Error:\n"),
+	print ("The variable\n\n\t" ++ to_string(Name)),
+	print ("\n\non line " ++ to_string(CurrLine) ++ ":\n\n\t" ++ to_string(TheCodeLine) ),
+	print ("\n\nhas not been initialized before the assignment!\n\n" ),
+	print ("" ++ ['-': _ in 1..56] ++ "\n").
+
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+%                   End of semantics Module                    %
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%

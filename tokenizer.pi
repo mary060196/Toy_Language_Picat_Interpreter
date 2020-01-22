@@ -1,0 +1,68 @@
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+%                          Tokenizer                           %
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+
+module tokenizer.
+
+% Token 'Type' Categorizations:                                                                   
+%    1) Identifier ---> the 'type' variable contains the character '1'                            
+%    2) Literal    ---> the 'type' variable contains the character '2'                            
+%    3) Symbol     ---> if from [= ; + - * ( )], the 'type' variable contains the character '3'   
+%    4) Input End  ---> if the end of the input was reached, the 'type' variable contains '5'     
+%    5) Disallowed ---> if none of the above, the 'type' variable contains the character '0' 
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'nextToken':                                                                    *
+* Input: Code, CurrLine, CurrCol, SymbolTable, and TheCodeLine.                   *
+* Process: Retrieve the next token and change the accumulators respectively.      *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+nextToken ([], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[], CurrLine, CurrCol, SymbolTable, [], '5', TheCodeLine].
+nextToken ([[]], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[], CurrLine, CurrCol+1, SymbolTable, [], '5', TheCodeLine].
+nextToken ([[], H | T], CurrLine, _, SymbolTable, _) =  nextToken ([H | T], CurrLine+1, 0, SymbolTable, H).
+nextToken ([[] | [H | T]], CurrLine, _, SymbolTable, _) = nextToken ([H | T], CurrLine+1, 0, SymbolTable, H).
+nextToken ([[H | T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = Arr, member (H, [' ', '		', '\t', '\r', '\f', '\v']) =>
+	Arr =  nextToken ([T1|T2], CurrLine, CurrCol+1, SymbolTable, TheCodeLine).
+nextToken ([[H | T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = Arr, member (H, ['=', ';', '+', '-', '*', '(', ')']) =>
+	Arr =  [[T1|T2], CurrLine, CurrCol+1, SymbolTable, to_string(H), '3', TheCodeLine].
+nextToken ([['0' | T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[T1|T2], CurrLine, CurrCol+1, SymbolTable, "0", '2', TheCodeLine].
+nextToken ([[H | T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = Arr , digit(H) =>
+	List = nextTokenProcessDigit ([H], T1, CurrCol+1),
+	Arr = [[List[2] | T2], CurrLine, List[3], SymbolTable, reverse(List[1]), '2', TheCodeLine].
+nextToken ([[H | T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = Arr, (ascii_alpha(H); H == '_')  =>
+	List = nextTokenProcessAlpha ([H], T1, CurrCol+1, SymbolTable),
+	Arr = [[List[2] | T2], CurrLine, List[3], List[4], List[1], '1', TheCodeLine].
+nextToken ([[H | T1]|T2], CurrLine, CurrCol, SymbolTable, TheCodeLine) = [[T1 | T2], CurrLine, CurrCol + 1, SymbolTable, H, '0', TheCodeLine].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'nextTokenProcessDigit':                                                        *
+* Input: MyStr, Code, CurrCol.                                                    *
+* Process: Retrieve the next digit token and increment the column number.         *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+nextTokenProcessDigit (MyStr, [H|T1], CurrCol) = Arr, digit(H) => Arr = nextTokenProcessDigit ([H | MyStr], T1, CurrCol + 1).
+nextTokenProcessDigit (MyStr, Code, CurrCol) = [MyStr, Code, CurrCol].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'nextTokenProcessAlpha':                                                        *
+* Input: MyStr, Code, CurrCol, SymbolTable.                                       *
+* Process: Retrieve the next identifier token and increment the column number.    *
+* Call a method to create a Symbol Table record for new identifiers.              *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+nextTokenProcessAlpha (MyStr, [H|T1], CurrCol, SymbolTable) = Arr, (ascii_alpha_digit(H); H == '_') =>
+	Arr = nextTokenProcessAlpha ([H | MyStr], T1, CurrCol + 1, SymbolTable).
+nextTokenProcessAlpha (MyStr, Code, CurrCol, SymbolTable) = Arr =>
+	List = checkIfInTableAndPut (reverse(MyStr), SymbolTable),
+	Arr = [List[1], Code, CurrCol, List[2]].
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
+* 'checkIfInTableAndPut':                                                         *
+* Input: MyStr, SymbolTable.                                                      *
+* Process: If MyStr is a new identifier, create a Symbol Table record for it.     *
+\* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+checkIfInTableAndPut (MyStr, SymbolTable) = List, has_key(SymbolTable, MyStr) => List = [MyStr, SymbolTable].
+checkIfInTableAndPut (MyStr, SymbolTable) = List =>
+	put (SymbolTable, MyStr, [0, false]),
+	List = [MyStr, SymbolTable].
+
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
+%                   End of tokenizer Module                    %
+% ~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~%
