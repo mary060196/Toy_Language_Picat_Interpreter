@@ -18,36 +18,36 @@
 **What's New in Version 2.0**:
 - Most loops, `if` conditionals, and `:=` assignments replaced by recursive procedures.
 - Optional goals (conditions) used to combine similar instructions.
-- Enhanced rror recovery mode displays several semantic errors per statement.
+- Enhanced error recovery mode displays several semantic errors per statement.
 - Uncompromised running time and efficiency.
 - Overall code length shortened by 53%.
 - Compilation time reduced by 32%.
 - Additional testing files added (see **Examples** below.)
 
-__Statistical details of the performed changes from verion 1.0 to 2.0__:
+__Statistical details of the performed changes from version 1.0 to 2.0__:
 - Length (only in lines of code, without comments and blank lines) of individual modules:
 
-  - `toylang.pi` - from 54 to 50 - a reduction of 7,4074074074%.
+  - `toylang.pi` - from 54 to 50 - a reduction of 7.41%.
 
-  - `parser.pi` - from 411 to 206 - a reduction of 49,8783454988%.
+  - `parser.pi` - from 411 to 206 - a reduction of 49.88%.
 
-  - `semantics.pi` - from 294 to 99 - a reduction of 66,3265306122%.
+  - `semantics.pi` - from 294 to 99 - a reduction of 66.35%.
 
-  - `tokenizer.pi` - from 57 to 28 - a reduction of 50,8771929825%.
+  - `tokenizer.pi` - from 57 to 28 - a reduction of 50.88%.
 
 - Length of the Entire Program:
 
-  - From 816 to 383 - a reduction of 53,0637254902%.
+  - From 816 to 383 - a reduction of 53.06%.
 
 - Compilation time of the program (in milliseconds):
 
-  - From 299 to 202 - a reduction of 32,4414715719%.
+  - From 299 to 202 - a reduction of 32.44%.
 
 - Total running time of the program on example programs (in milliseconds):
 
   - `test.txt` - from 8 to 8 - no change.
 
-  - `errors1.txt` - from 133 to 128 - a reduction of 3,7593984962%.
+  - `errors1.txt` - from 133 to 128 - a reduction of 3.76%.
   
 If you would like to compare the versions yourself, please refer to the directory `Version1` in this repository to find the source code of Version 1.0.
 
