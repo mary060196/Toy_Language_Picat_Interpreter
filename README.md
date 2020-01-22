@@ -24,7 +24,7 @@
 - Compilation time reduced by 32%.
 - Additional testing files added (see **Examples** below.)
 
-__Statistical details of the performed changes__:
+__Statistical details of the performed changes from verion 1.0 to 2.0__:
 - Length (only in lines of code, without comments and blank lines) of individual modules:
 
   - `toylang.pi` - from 54 to 50 - a reduction of 7,4074074074%.
@@ -48,6 +48,8 @@ __Statistical details of the performed changes__:
   - `test.txt` - from 8 to 8 - no change.
 
   - `errors1.txt` - from 133 to 128 - a reduction of 3,7593984962%.
+  
+If you would like to compare the versions yourself, please refer to the directory `Version1` in this repository to find the source code of Version 1.0.
 
 ## Getting Started
 - Download the Picat processor to your device from http://picat-lang.org/download.html
